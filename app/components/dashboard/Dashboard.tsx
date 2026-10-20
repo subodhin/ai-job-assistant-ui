@@ -1,6 +1,14 @@
 "use client";
 
-import { Avatar, Button, Input, Layout, Menu, Typography } from "antd";
+import { useState } from "react";
+import {
+  Avatar,
+  Button,
+  Input,
+  Layout,
+  Menu,
+  Typography,
+} from "antd";
 
 import {
   AudioOutlined,
@@ -14,8 +22,11 @@ import {
   SettingOutlined,
 } from "@ant-design/icons";
 
+import type { Message } from "@/app/types/chat";
+import ChatMessage from "@/app/components/chat/ChatMessage";
+
 const { Sider, Header, Content } = Layout;
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const menuItems = [
   {
@@ -35,7 +46,83 @@ const menuItems = [
   },
 ];
 
+const initialMessage: Message = {
+  id: "welcome",
+  role: "assistant",
+  content:
+    "Hi Subodhi! 👋 I'm your AI Job Assistant. I can help you discover job opportunities, identify skill gaps, understand job descriptions, and explore your next career move. What would you like to work on today?",
+  timestamp: new Date(),
+};
+
+const suggestedPrompts = [
+  "Find global remote AI jobs",
+  "Analyse my skill gaps",
+  "Match my profile to a job",
+];
+
 export default function Dashboard() {
+  const [messages, setMessages] = useState<Message[]>([
+    initialMessage,
+  ]);
+
+  const [input, setInput] = useState("");
+
+  const [isResponding, setIsResponding] = useState(false);
+
+  function handleSend(messageText?: string) {
+    const content = (messageText ?? input).trim();
+
+    if (!content || isResponding) {
+      return;
+    }
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+      timestamp: new Date(),
+    };
+
+    setMessages((previousMessages) => [
+      ...previousMessages,
+      userMessage,
+    ]);
+
+    setInput("");
+    setIsResponding(true);
+
+    // Temporary response until the FastAPI backend is connected.
+    setTimeout(() => {
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content:
+          "Thanks for your question! Your message has been received. Once we connect the FastAPI backend, I'll be able to provide AI-powered answers using your job intelligence system.",
+        timestamp: new Date(),
+      };
+
+      setMessages((previousMessages) => [
+        ...previousMessages,
+        assistantMessage,
+      ]);
+
+      setIsResponding(false);
+    }, 700);
+  }
+
+  function handleNewChat() {
+    setMessages([
+      {
+        ...initialMessage,
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ]);
+
+    setInput("");
+    setIsResponding(false);
+  }
+
   return (
     <Layout className="dashboard-layout">
       {/* Left sidebar */}
@@ -46,12 +133,19 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <Text className="brand-title">AI Job Assistant</Text>
-            <Text className="brand-subtitle">Your career companion</Text>
+            <Text className="brand-title">
+              AI Job Assistant
+            </Text>
+
+            <Text className="brand-subtitle">
+              Your career companion
+            </Text>
           </div>
         </div>
 
-        <Text className="sidebar-label">WORKSPACE</Text>
+        <Text className="sidebar-label">
+          WORKSPACE
+        </Text>
 
         <Menu
           theme="dark"
@@ -80,8 +174,13 @@ export default function Dashboard() {
             <Avatar size={38}>S</Avatar>
 
             <div className="sidebar-user-info">
-              <Text className="sidebar-user-name">Subodhi</Text>
-              <Text className="sidebar-user-role">Personal workspace</Text>
+              <Text className="sidebar-user-name">
+                Subodhi
+              </Text>
+
+              <Text className="sidebar-user-role">
+                Personal workspace
+              </Text>
             </div>
           </div>
         </div>
@@ -124,93 +223,83 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <Button icon={<PlusOutlined />} className="new-chat-button">
+                <Button
+                  icon={<PlusOutlined />}
+                  className="new-chat-button"
+                  onClick={handleNewChat}
+                >
                   New chat
                 </Button>
               </div>
 
+              {/* Dynamic conversation */}
               <div className="chat-messages">
-                {/* Assistant message */}
-                <div className="message-row">
-                  <Avatar
-                    className="assistant-avatar"
-                    icon={<RobotOutlined />}
+                {messages.map((item) => (
+                  <ChatMessage
+                    key={item.id}
+                    message={item}
                   />
+                ))}
 
-                  <div className="message-content">
-                    <Text className="message-author">AI Assistant</Text>
+                {isResponding && (
+                  <div className="message-row">
+                    <Avatar
+                      className="assistant-avatar"
+                      icon={<RobotOutlined />}
+                    />
 
-                    <div className="message-bubble assistant-bubble">
-                      <Paragraph>
-                        Hi Subodhi! 👋 Im your AI Job Assistant.
-                      </Paragraph>
+                    <div className="message-content">
+                      <Text className="message-author">
+                        AI Assistant
+                      </Text>
 
-                      <Paragraph>
-                        I can help you discover job opportunities, identify
-                        skill gaps, understand job descriptions, and explore
-                        your next career move.
-                      </Paragraph>
-
-                      <Paragraph className="message-last-paragraph">
-                        What would you like to work on today?
-                      </Paragraph>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Example user message */}
-                <div className="message-row user-message-row">
-                  <div className="message-content user-message-content">
-                    <Text className="message-author user-author">You</Text>
-
-                    <div className="message-bubble user-bubble">
-                      Find remote AI Engineer opportunities that I can work on
-                      from Sri Lanka.
-                    </div>
-                  </div>
-
-                  <Avatar className="user-avatar">S</Avatar>
-                </div>
-
-                {/* Example assistant response */}
-                <div className="message-row">
-                  <Avatar
-                    className="assistant-avatar"
-                    icon={<RobotOutlined />}
-                  />
-
-                  <div className="message-content">
-                    <Text className="message-author">AI Assistant</Text>
-
-                    <div className="message-bubble assistant-bubble">
-                      Absolutely! I can help you search for suitable remote AI
-                      engineering roles and assess their location and time-zone
-                      requirements.
-                      <div className="suggestion-list">
-                        <Text className="suggestion-label">Try asking:</Text>
-
-                        <button className="suggestion-chip">
-                          Find global remote AI jobs
-                        </button>
-
-                        <button className="suggestion-chip">
-                          Analyse my skill gaps
-                        </button>
-
-                        <button className="suggestion-chip">
-                          Match my profile to a job
-                        </button>
+                      <div className="message-bubble assistant-bubble">
+                        Thinking...
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* Suggested prompts appear in an empty conversation */}
+                {messages.length === 1 && (
+                  <div className="suggestion-list">
+                    <Text className="suggestion-label">
+                      Try asking:
+                    </Text>
+
+                    {suggestedPrompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        className="suggestion-chip"
+                        onClick={() => handleSend(prompt)}
+                        disabled={isResponding}
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Message composer */}
               <div className="composer">
                 <Input.TextArea
+                  value={input}
+                  onChange={(event) =>
+                    setInput(event.target.value)
+                  }
+                  onPressEnter={(event) => {
+                    if (!event.shiftKey) {
+                      event.preventDefault();
+                      handleSend();
+                    }
+                  }}
                   placeholder="Ask about jobs, skills, salaries, or career opportunities..."
-                  autoSize={{ minRows: 2, maxRows: 5 }}
+                  autoSize={{
+                    minRows: 2,
+                    maxRows: 5,
+                  }}
                   className="composer-input"
                 />
 
@@ -220,12 +309,14 @@ export default function Dashboard() {
                       type="text"
                       icon={<PaperClipOutlined />}
                       aria-label="Attach a file"
+                      title="File attachments coming soon"
                     />
 
                     <Button
                       type="text"
                       icon={<AudioOutlined />}
                       aria-label="Voice input"
+                      title="Voice input coming soon"
                     />
 
                     <Text className="composer-hint">
@@ -237,6 +328,8 @@ export default function Dashboard() {
                     type="primary"
                     icon={<SendOutlined />}
                     className="send-button"
+                    onClick={() => handleSend()}
+                    disabled={!input.trim() || isResponding}
                   >
                     Send
                   </Button>
@@ -244,7 +337,7 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* Reserved space for future features */}
+            {/* Right workspace panel */}
             <aside className="insights-card">
               <div className="insights-header">
                 <Title level={5} className="insights-title">
@@ -261,7 +354,9 @@ export default function Dashboard() {
                   <BankOutlined />
                 </div>
 
-                <Text className="placeholder-title">Job Recommendations</Text>
+                <Text className="placeholder-title">
+                  Job Recommendations
+                </Text>
 
                 <Text className="placeholder-description">
                   Relevant opportunities based on your skills and goals.
@@ -270,10 +365,12 @@ export default function Dashboard() {
 
               <div className="feature-placeholder">
                 <div className="placeholder-icon">
-                  <BankOutlined />
+                  <FileTextOutlined />
                 </div>
 
-                <Text className="placeholder-title">Resume Insights</Text>
+                <Text className="placeholder-title">
+                  Resume Insights
+                </Text>
 
                 <Text className="placeholder-description">
                   Review your experience and identify areas to improve.
@@ -282,10 +379,12 @@ export default function Dashboard() {
 
               <div className="feature-placeholder">
                 <div className="placeholder-icon">
-                  <BankOutlined />
+                  <MessageOutlined />
                 </div>
 
-                <Text className="placeholder-title">Saved Conversations</Text>
+                <Text className="placeholder-title">
+                  Saved Conversations
+                </Text>
 
                 <Text className="placeholder-description">
                   Return to previous questions and career discussions.
@@ -295,7 +394,9 @@ export default function Dashboard() {
               <div className="workspace-note">
                 <RobotOutlined />
 
-                <Text>More AI-powered tools will appear here.</Text>
+                <Text>
+                  More AI-powered tools will appear here.
+                </Text>
               </div>
             </aside>
           </div>
