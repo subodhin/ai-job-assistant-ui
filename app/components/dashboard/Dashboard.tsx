@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
   Avatar,
   Button,
+  Card,
+  Tag,
   Input,
   Layout,
   Menu,
@@ -27,6 +29,31 @@ import ChatMessage from "@/app/components/chat/ChatMessage";
 
 const { Sider, Header, Content } = Layout;
 const { Title, Text } = Typography;
+
+type JobResult = {
+  id?: string | number;
+  title?: string;
+  skills?: string[];
+  salary?: string;
+  location?: string;
+  job_url?: string;
+};
+
+type AgentResponse = {
+  intent?: { intent?: string } | string;
+  response?: {
+    intent?: string;
+    agent?: string;
+    filters?: {
+      title?: string;
+      skills?: string[];
+      location?: string;
+    };
+    results?: JobResult[];
+    [key: string]: unknown;
+  } | string;
+  user_id?: string;
+};
 
 const menuItems = [
   {
@@ -68,13 +95,13 @@ export default function Dashboard() {
   const [input, setInput] = useState("");
 
   const [isResponding, setIsResponding] = useState(false);
+  const [jobResults, setJobResults] = useState<JobResult[]>([]);
+  const [jobSearchSummary, setJobSearchSummary] = useState("");
 
-  function handleSend(messageText?: string) {
+  async function handleSend(messageText?: string) {
     const content = (messageText ?? input).trim();
 
-    if (!content || isResponding) {
-      return;
-    }
+    if (!content || isResponding) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -83,31 +110,75 @@ export default function Dashboard() {
       timestamp: new Date(),
     };
 
-    setMessages((previousMessages) => [
-      ...previousMessages,
-      userMessage,
-    ]);
-
+    setMessages((previousMessages) => [...previousMessages, userMessage]);
     setInput("");
     setIsResponding(true);
+    setJobResults([]);
+    setJobSearchSummary("");
 
-    // Temporary response until the FastAPI backend is connected.
-    setTimeout(() => {
+    try {
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+      const response = await fetch(`${apiBaseUrl}/ai-agent-context`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: "user_001", query: content }),
+      });
+
+      if (!response.ok) {
+        const details = await response.text();
+        throw new Error(`API request failed (${response.status}): ${details}`);
+      }
+
+      const data: AgentResponse = await response.json();
+      const agentResponse = data.response;
+      let assistantContent = "Your request completed, but no answer was returned.";
+
+      if (agentResponse && typeof agentResponse === "object") {
+        const results = Array.isArray(agentResponse.results)
+          ? agentResponse.results
+          : [];
+
+        if (results.length > 0) {
+          setJobResults(results);
+          const filters = agentResponse.filters;
+          const title = filters?.title || "Job search";
+          const skills = filters?.skills?.length
+            ? filters.skills.join(", ")
+            : "Relevant skills";
+          const location = filters?.location || "Any location";
+          setJobSearchSummary(`${title} · ${skills} · ${location}`);
+          assistantContent = `I found ${results.length} job listings for your search. Review the details below and open any listing to learn more.`;
+        } else {
+          assistantContent = JSON.stringify(agentResponse, null, 2);
+        }
+      } else if (typeof agentResponse === "string") {
+        assistantContent = agentResponse;
+      }
+
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content:
-          "Thanks for your question! Your message has been received. Once we connect the FastAPI backend, I'll be able to provide AI-powered answers using your job intelligence system.",
+        content: assistantContent,
         timestamp: new Date(),
       };
-
-      setMessages((previousMessages) => [
-        ...previousMessages,
-        assistantMessage,
-      ]);
-
+      setMessages((previousMessages) => [...previousMessages, assistantMessage]);
+    } catch (error) {
+      console.error("Failed to call FastAPI:", error);
+      const errorMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content:
+          error instanceof Error
+            ? `I couldn't complete your request. ${error.message}`
+            : "I couldn't connect to the backend. Please check that FastAPI is running and CORS is configured.",
+        timestamp: new Date(),
+      };
+      setMessages((previousMessages) => [...previousMessages, errorMessage]);
+    } finally {
       setIsResponding(false);
-    }, 700);
+    }
   }
 
   function handleNewChat() {
@@ -121,6 +192,8 @@ export default function Dashboard() {
 
     setInput("");
     setIsResponding(false);
+    setJobResults([]);
+    setJobSearchSummary("");
   }
 
   return (
@@ -240,6 +313,69 @@ export default function Dashboard() {
                     message={item}
                   />
                 ))}
+
+                {jobResults.length > 0 && (
+                  <div style={{ margin: "8px 0 12px 44px", maxWidth: 760 }}>
+                    <div style={{ marginBottom: 10 }}>
+                      <Text strong style={{ display: "block", fontSize: 16 }}>
+                        Job search results
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {jobSearchSummary} · {jobResults.length} listings
+                      </Text>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {jobResults.map((job, index) => (
+                        <Card
+                          key={job.id ?? `${job.title ?? "job"}-${index}`}
+                          size="small"
+                          styles={{ body: { padding: "12px 14px" } }}
+                          style={{ borderRadius: 10, borderColor: "#e6eaf0" }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                            <div style={{ minWidth: 0 }}>
+                              <Text strong style={{ fontSize: 14 }}>
+                                {index + 1}. {job.title || "Untitled position"}
+                              </Text>
+                              <div style={{ marginTop: 5, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                <Tag style={{ marginInlineEnd: 0 }}>{job.location || "Location not provided"}</Tag>
+                                <Tag color="green" style={{ marginInlineEnd: 0 }}>
+                                  {job.salary?.trim() || "Salary not provided"}
+                                </Tag>
+                              </div>
+                            </div>
+                            {job.job_url && (
+                              <a
+                                href={job.job_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ whiteSpace: "nowrap", fontWeight: 600, fontSize: 13 }}
+                              >
+                                View job ↗
+                              </a>
+                            )}
+                          </div>
+
+                          {!!job.skills?.length && (
+                            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
+                              {job.skills.slice(0, 6).map((skill) => (
+                                <Tag key={skill} style={{ marginInlineEnd: 0, marginBottom: 0 }}>
+                                  {skill.trim()}
+                                </Tag>
+                              ))}
+                              {job.skills.length > 6 && (
+                                <Text type="secondary" style={{ fontSize: 12, alignSelf: "center" }}>
+                                  +{job.skills.length - 6} more
+                                </Text>
+                              )}
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {isResponding && (
                   <div className="message-row">
