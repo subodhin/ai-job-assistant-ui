@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Avatar,
+  Spin,
   Button,
   Card,
   Tag,
@@ -510,24 +511,27 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {isResponding && (
-                  <div className="message-row">
-                    <Avatar
-                      className="assistant-avatar"
-                      icon={<RobotOutlined />}
-                    />
+               {isResponding && (
+  <div className="message-row">
+    <Avatar
+      className="assistant-avatar"
+      icon={<RobotOutlined />}
+    />
 
-                    <div className="message-content">
-                      <Text className="message-author">
-                        AI Assistant
-                      </Text>
+    <div className="message-content">
+      <Text className="message-author">
+        AI Assistant
+      </Text>
 
-                      <div className="message-bubble assistant-bubble">
-                        Thinking...
-                      </div>
-                    </div>
-                  </div>
-                )}
+      <div className="message-bubble assistant-bubble">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Spin size="small" />
+          <Text type="secondary">Thinking...</Text>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
                 {/* Suggested prompts appear in an empty conversation */}
                 {messages.length === 1 && (
