@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -28,8 +29,13 @@ import {
 import type { Message } from "@/app/types/chat";
 import ChatMessage from "@/app/components/chat/ChatMessage";
 
+import SkillGapResults from "@/app/components/skill-gap/SkillGapResults";
+import type { SkillGapData } from "@/app/components/skill-gap/SkillGapResults";
+
 const { Sider, Header, Content } = Layout;
 const { Title, Text } = Typography;
+
+// Job result type
 
 type JobResult = {
   id?: string | number;
@@ -40,21 +46,36 @@ type JobResult = {
   job_url?: string;
 };
 
+// Backend response type
+
 type AgentResponse = {
   intent?: { intent?: string } | string;
+
   response?: {
     intent?: string;
     agent?: string;
+    target_role?: string;
+
+    overview?: unknown;
+    skill_assessment?: unknown;
+    recommendations?: unknown;
+    data_quality?: unknown;
+
     filters?: {
       title?: string;
       skills?: string[];
       location?: string;
     };
+
     results?: JobResult[];
+
     [key: string]: unknown;
   } | string;
+
   user_id?: string;
 };
+
+// Sidebar menu
 
 const menuItems = [
   {
@@ -74,6 +95,8 @@ const menuItems = [
   },
 ];
 
+// Initial assistant message
+
 const initialMessage: Message = {
   id: "welcome",
   role: "assistant",
@@ -82,6 +105,8 @@ const initialMessage: Message = {
   timestamp: new Date(0),
 };
 
+// Suggested prompts
+
 const suggestedPrompts = [
   "Find global remote AI jobs",
   "Analyse my skill gaps",
@@ -89,15 +114,28 @@ const suggestedPrompts = [
 ];
 
 export default function Dashboard() {
+  // Chat messages
+
   const [messages, setMessages] = useState<Message[]>([
     initialMessage,
   ]);
 
+  // Input and loading
 
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
+
+  // Job search state
+
   const [jobResults, setJobResults] = useState<JobResult[]>([]);
   const [jobSearchSummary, setJobSearchSummary] = useState("");
+
+  // Skill gap state
+
+  const [skillGapData, setSkillGapData] =
+    useState<SkillGapData | null>(null);
+
+  // Handle user message
 
   async function handleSend(messageText?: string) {
     const content = (messageText ?? input).trim();
@@ -118,8 +156,12 @@ export default function Dashboard() {
 
     setInput("");
     setIsResponding(true);
+
+    // Clear previous results when sending a new request
+
     setJobResults([]);
     setJobSearchSummary("");
+    setSkillGapData(null);
 
     try {
       const apiBaseUrl =
@@ -149,47 +191,77 @@ export default function Dashboard() {
       }
 
       const data: AgentResponse = await response.json();
+
       const agentResponse = data.response;
 
       let assistantContent =
         "Your request completed, but no answer was returned.";
 
+      // Process object responses
+
       if (
         agentResponse &&
         typeof agentResponse === "object"
       ) {
-        const results = Array.isArray(agentResponse.results)
-          ? agentResponse.results
-          : [];
+        // Skill gap analysis
 
-        if (results.length > 0) {
-          setJobResults(results);
+        if (
+          agentResponse.intent === "skill_gap_analysis" &&
+          agentResponse.overview &&
+          agentResponse.skill_assessment &&
+          agentResponse.recommendations &&
+          agentResponse.data_quality
+        ) {
+          setSkillGapData(agentResponse as SkillGapData);
 
-          const filters = agentResponse.filters;
-          const title = filters?.title || "Job search";
-
-          const skills = filters?.skills?.length
-            ? filters.skills.join(", ")
-            : "Relevant skills";
-
-          const location =
-            filters?.location || "Any location";
-
-          setJobSearchSummary(
-            `${title} · ${skills} · ${location}`
-          );
-
-          assistantContent = `I found ${results.length} job listings for your search. Review the details below and open any listing to learn more.`;
-        } else {
-          assistantContent = JSON.stringify(
-            agentResponse,
-            null,
-            2
-          );
+          assistantContent =
+            "I've completed your skill-gap analysis. Here's your assessment and recommended learning roadmap.";
         }
-      } else if (typeof agentResponse === "string") {
+
+        // Job search
+
+        else {
+          const results = Array.isArray(agentResponse.results)
+            ? agentResponse.results
+            : [];
+
+          if (results.length > 0) {
+            setJobResults(results);
+
+            const filters = agentResponse.filters;
+
+            const title = filters?.title || "Job search";
+
+            const skills = filters?.skills?.length
+              ? filters.skills.join(", ")
+              : "Relevant skills";
+
+            const location =
+              filters?.location || "Any location";
+
+            setJobSearchSummary(
+              `${title} · ${skills} · ${location}`
+            );
+
+            assistantContent =
+              `I found ${results.length} job listings for your search. Review the details below and open any listing to learn more.`;
+          } else {
+            assistantContent = JSON.stringify(
+              agentResponse,
+              null,
+              2
+            );
+          }
+        }
+      }
+
+      // String responses
+
+      else if (typeof agentResponse === "string") {
         assistantContent = agentResponse;
       }
+
+      // Add assistant message
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
@@ -202,6 +274,7 @@ export default function Dashboard() {
         ...previousMessages,
         assistantMessage,
       ]);
+
     } catch (error) {
       console.error("Failed to call FastAPI:", error);
 
@@ -219,10 +292,13 @@ export default function Dashboard() {
         ...previousMessages,
         errorMessage,
       ]);
+
     } finally {
       setIsResponding(false);
     }
   }
+
+  // Start new chat
 
   function handleNewChat() {
     setMessages([
@@ -235,14 +311,21 @@ export default function Dashboard() {
 
     setInput("");
     setIsResponding(false);
+
+    // Clear all previous results
+
     setJobResults([]);
     setJobSearchSummary("");
+    setSkillGapData(null);
   }
 
   return (
     <Layout className="dashboard-layout">
+
       {/* Left sidebar */}
+
       <Sider width={250} className="dashboard-sider">
+
         <div className="brand">
           <div className="brand-icon">
             <RobotOutlined />
@@ -272,6 +355,7 @@ export default function Dashboard() {
         />
 
         <div className="sidebar-bottom">
+
           <Menu
             theme="dark"
             mode="inline"
@@ -299,12 +383,16 @@ export default function Dashboard() {
               </Text>
             </div>
           </div>
+
         </div>
       </Sider>
 
       {/* Main dashboard */}
+
       <Layout className="dashboard-main">
+
         <Header className="dashboard-header">
+
           <div>
             <Title level={4} className="welcome-title">
               Welcome, Subodhi
@@ -316,14 +404,21 @@ export default function Dashboard() {
           </div>
 
           <Avatar size={42}>S</Avatar>
+
         </Header>
 
         <Content className="dashboard-content">
+
           <div className="dashboard-grid">
+
             {/* Chat panel */}
+
             <section className="chat-card">
+
               <div className="chat-header">
+
                 <div className="chat-heading">
+
                   <div className="chat-icon">
                     <RobotOutlined />
                   </div>
@@ -338,6 +433,7 @@ export default function Dashboard() {
                       career.
                     </Text>
                   </div>
+
                 </div>
 
                 <Button
@@ -347,16 +443,34 @@ export default function Dashboard() {
                 >
                   New chat
                 </Button>
+
               </div>
 
               {/* Dynamic conversation */}
+
               <div className="chat-messages">
+
                 {messages.map((item) => (
                   <ChatMessage
                     key={item.id}
                     message={item}
                   />
                 ))}
+
+                {/* Skill gap dashboard */}
+
+                {skillGapData && (
+                  <div
+                    style={{
+                      margin: "8px 0 20px 44px",
+                      maxWidth: 900,
+                    }}
+                  >
+                    <SkillGapResults data={skillGapData} />
+                  </div>
+                )}
+
+                {/* Job search results */}
 
                 {jobResults.length > 0 && (
                   <div
@@ -365,7 +479,9 @@ export default function Dashboard() {
                       maxWidth: 760,
                     }}
                   >
+
                     <div style={{ marginBottom: 10 }}>
+
                       <Text
                         strong
                         style={{
@@ -380,9 +496,9 @@ export default function Dashboard() {
                         type="secondary"
                         style={{ fontSize: 12 }}
                       >
-                        {jobSearchSummary} · {jobResults.length}{" "}
-                        listings
+                        {jobSearchSummary} · {jobResults.length} listings
                       </Text>
+
                     </div>
 
                     <div
@@ -391,6 +507,7 @@ export default function Dashboard() {
                         gap: 10,
                       }}
                     >
+
                       {jobResults.map((job, index) => (
                         <Card
                           key={
@@ -406,6 +523,7 @@ export default function Dashboard() {
                             borderColor: "#e6eaf0",
                           }}
                         >
+
                           <div
                             style={{
                               display: "flex",
@@ -414,14 +532,12 @@ export default function Dashboard() {
                               alignItems: "flex-start",
                             }}
                           >
+
                             <div style={{ minWidth: 0 }}>
-                              <Text
-                                strong
-                                style={{ fontSize: 14 }}
-                              >
+
+                              <Text strong style={{ fontSize: 14 }}>
                                 {index + 1}.{" "}
-                                {job.title ||
-                                  "Untitled position"}
+                                {job.title || "Untitled position"}
                               </Text>
 
                               <div
@@ -432,25 +548,18 @@ export default function Dashboard() {
                                   gap: 6,
                                 }}
                               >
-                                <Tag
-                                  style={{
-                                    marginInlineEnd: 0,
-                                  }}
-                                >
-                                  {job.location ||
-                                    "Location not provided"}
+
+                                <Tag>
+                                  {job.location || "Location not provided"}
                                 </Tag>
 
-                                <Tag
-                                  color="green"
-                                  style={{
-                                    marginInlineEnd: 0,
-                                  }}
-                                >
+                                <Tag color="green">
                                   {job.salary?.trim() ||
                                     "Salary not provided"}
                                 </Tag>
+
                               </div>
+
                             </div>
 
                             {job.job_url && (
@@ -467,6 +576,7 @@ export default function Dashboard() {
                                 View job ↗
                               </a>
                             )}
+
                           </div>
 
                           {!!job.skills?.length && (
@@ -478,19 +588,12 @@ export default function Dashboard() {
                                 gap: 5,
                               }}
                             >
-                              {job.skills
-                                .slice(0, 6)
-                                .map((skill) => (
-                                  <Tag
-                                    key={skill}
-                                    style={{
-                                      marginInlineEnd: 0,
-                                      marginBottom: 0,
-                                    }}
-                                  >
-                                    {skill.trim()}
-                                  </Tag>
-                                ))}
+
+                              {job.skills.slice(0, 6).map((skill) => (
+                                <Tag key={skill}>
+                                  {skill.trim()}
+                                </Tag>
+                              ))}
 
                               {job.skills.length > 6 && (
                                 <Text
@@ -503,39 +606,58 @@ export default function Dashboard() {
                                   +{job.skills.length - 6} more
                                 </Text>
                               )}
+
                             </div>
                           )}
+
                         </Card>
                       ))}
+
                     </div>
                   </div>
                 )}
 
-               {isResponding && (
-  <div className="message-row">
-    <Avatar
-      className="assistant-avatar"
-      icon={<RobotOutlined />}
-    />
+                {/* Loading indicator */}
 
-    <div className="message-content">
-      <Text className="message-author">
-        AI Assistant
-      </Text>
+                {isResponding && (
+                  <div className="message-row">
 
-      <div className="message-bubble assistant-bubble">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Spin size="small" />
-          <Text type="secondary">Thinking...</Text>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+                    <Avatar
+                      className="assistant-avatar"
+                      icon={<RobotOutlined />}
+                    />
 
-                {/* Suggested prompts appear in an empty conversation */}
+                    <div className="message-content">
+
+                      <Text className="message-author">
+                        AI Assistant
+                      </Text>
+
+                      <div className="message-bubble assistant-bubble">
+
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <Spin size="small" />
+                          <Text type="secondary">
+                            Thinking...
+                          </Text>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Suggested prompts */}
+
                 {messages.length === 1 && (
                   <div className="suggestion-list">
+
                     <Text className="suggestion-label">
                       Try asking:
                     </Text>
@@ -551,12 +673,16 @@ export default function Dashboard() {
                         {prompt}
                       </button>
                     ))}
+
                   </div>
                 )}
+
               </div>
 
               {/* Message composer */}
+
               <div className="composer">
+
                 <Input.TextArea
                   value={input}
                   onChange={(event) =>
@@ -577,7 +703,9 @@ export default function Dashboard() {
                 />
 
                 <div className="composer-footer">
+
                   <div className="composer-tools">
+
                     <Button
                       type="text"
                       icon={<PaperClipOutlined />}
@@ -595,6 +723,7 @@ export default function Dashboard() {
                     <Text className="composer-hint">
                       AI-generated answers may need verification.
                     </Text>
+
                   </div>
 
                   <Button
@@ -606,13 +735,18 @@ export default function Dashboard() {
                   >
                     Send
                   </Button>
+
                 </div>
               </div>
+
             </section>
 
             {/* Right workspace panel */}
+
             <aside className="insights-card">
+
               <div className="insights-header">
+
                 <Title level={5} className="insights-title">
                   Your Workspace
                 </Title>
@@ -620,9 +754,11 @@ export default function Dashboard() {
                 <Text className="insights-subtitle">
                   Your career tools, all in one place.
                 </Text>
+
               </div>
 
               <div className="feature-placeholder">
+
                 <div className="placeholder-icon">
                   <BankOutlined />
                 </div>
@@ -632,12 +768,13 @@ export default function Dashboard() {
                 </Text>
 
                 <Text className="placeholder-description">
-                  Relevant opportunities based on your skills and
-                  goals.
+                  Relevant opportunities based on your skills and goals.
                 </Text>
+
               </div>
 
               <div className="feature-placeholder">
+
                 <div className="placeholder-icon">
                   <FileTextOutlined />
                 </div>
@@ -647,12 +784,13 @@ export default function Dashboard() {
                 </Text>
 
                 <Text className="placeholder-description">
-                  Review your experience and identify areas to
-                  improve.
+                  Review your experience and identify areas to improve.
                 </Text>
+
               </div>
 
               <div className="feature-placeholder">
+
                 <div className="placeholder-icon">
                   <MessageOutlined />
                 </div>
@@ -662,9 +800,9 @@ export default function Dashboard() {
                 </Text>
 
                 <Text className="placeholder-description">
-                  Return to previous questions and career
-                  discussions.
+                  Return to previous questions and career discussions.
                 </Text>
+
               </div>
 
               <div className="workspace-note">
@@ -674,8 +812,11 @@ export default function Dashboard() {
                   More AI-powered tools will appear here.
                 </Text>
               </div>
+
             </aside>
+
           </div>
+
         </Content>
       </Layout>
     </Layout>
