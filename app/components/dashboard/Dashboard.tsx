@@ -83,11 +83,11 @@ const menuItems = [
     icon: <MessageOutlined />,
     label: "Chat Assistant",
   },
-  {
-    key: "jobs",
-    icon: <BankOutlined />,
-    label: "Job Search",
-  },
+  // {
+  //   key: "jobs",
+  //   icon: <BankOutlined />,
+  //   label: "Job Search",
+  // },
   {
     key: "documents",
     icon: <FileTextOutlined />,
@@ -395,7 +395,7 @@ export default function Dashboard() {
 
           <div>
             <Title level={4} className="welcome-title">
-              Welcome!
+              Welcome
             </Title>
 
             <Text className="welcome-subtitle">
