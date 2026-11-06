@@ -395,7 +395,7 @@ export default function Dashboard() {
 
           <div>
             <Title level={4} className="welcome-title">
-              Welcome, Subodhi
+              Welcome!
             </Title>
 
             <Text className="welcome-subtitle">
