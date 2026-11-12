@@ -24,6 +24,7 @@ import {
   RobotOutlined,
   SendOutlined,
   SettingOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 
 import type { Message } from "@/app/types/chat";
@@ -101,7 +102,7 @@ const initialMessage: Message = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi Subodhi! 👋 I'm your AI Job Assistant. I can help you discover job opportunities, identify skill gaps, understand job descriptions, and explore your next career move. What would you like to work on today?",
+    "Hi! 👋 I'm your AI Job Assistant. I can help you discover job opportunities, identify skill gaps, understand job descriptions, and explore your next career move. What would you like to work on today?",
   timestamp: new Date(0),
 };
 
@@ -375,7 +376,7 @@ export default function Dashboard() {
 
             <div className="sidebar-user-info">
               <Text className="sidebar-user-name">
-                Subodhi
+                User
               </Text>
 
               <Text className="sidebar-user-role">
@@ -403,7 +404,7 @@ export default function Dashboard() {
             </Text>
           </div>
 
-          <Avatar size={42}>S</Avatar>
+          <Avatar size={42} icon={<UserOutlined />} />
 
         </Header>
 
